@@ -13,7 +13,7 @@ namespace JsonRazerBeam
 {
     public class Program
     {
-        [Params(@"/Users/BenjaminPinter/Projects/JsonRazerBeam/AAPL-20210104-Quotes.json")]
+        [Params(@"/Users/BenjaminPinter/Downloads/AAPL-20210104-Quotes.json")]
         public static string FileLocation { get; set; }
 
         public static void Main(string[] args)
