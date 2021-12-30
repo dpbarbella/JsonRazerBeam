@@ -15,16 +15,16 @@ namespace ConsoleApp1
         {
             var list = new List<T>();
 
-            using var mmf = MemoryMappedFile.CreateFromFile(filepath, FileMode.Open);
-            using var vs = mmf.CreateViewStream();
-            using var mmv = vs.SafeMemoryMappedViewHandle;
+            using var mmFile = MemoryMappedFile.CreateFromFile(filepath, FileMode.Open);
+            using var stream = mmFile.CreateViewStream();
+            using var h2stream = stream.SafeMemoryMappedViewHandle;
 
             unsafe
             {
                 byte* ptrMemMap = (byte*)0;
-                mmv.AcquirePointer(ref ptrMemMap);
-                var bytes = new ReadOnlySpan<byte>(ptrMemMap, (int)mmv.ByteLength);
-                mmv.ReleasePointer();
+                h2stream.AcquirePointer(ref ptrMemMap);
+                var bytes = new ReadOnlySpan<byte>(ptrMemMap, (int)h2stream.ByteLength);
+                h2stream.ReleasePointer();
 
                 var reader = new Utf8JsonReader(bytes, new JsonReaderOptions
                 {
