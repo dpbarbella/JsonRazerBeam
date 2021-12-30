@@ -21,9 +21,9 @@ namespace ConsoleApp1
 
             unsafe
             {
-                byte* ptrMemMap = (byte*)0;
-                h2stream.AcquirePointer(ref ptrMemMap);
-                var bytes = new ReadOnlySpan<byte>(ptrMemMap, (int)h2stream.ByteLength);
+                byte* p2mm = (byte*)0;
+                h2stream.AcquirePointer(ref p2mm);
+                var bytes = new ReadOnlySpan<byte>(p2mm, (int)h2stream.ByteLength);
                 h2stream.ReleasePointer();
 
                 var reader = new Utf8JsonReader(bytes, new JsonReaderOptions
