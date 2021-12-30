@@ -1,0 +1,145 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.IO.MemoryMappedFiles;
+using System.Text.Json;
+using BenchmarkDotNet.Attributes;
+using Newtonsoft.Json;
+
+namespace ConsoleApp1
+{
+    public class Quote
+    {
+        public string rs;
+        public bool isActive;
+        public string T;
+        public long t;
+        public long f;
+        public long y;
+        public decimal P;
+        public decimal S;
+        public decimal p;
+        public decimal s;
+    }
+
+    public class JsonLargeFiles
+    {
+        [Benchmark]
+        public void ReadAll()
+        {
+            ReadOnlySpan<byte> bytes;
+            var quotes = new List<Quote>();
+            var sJson = string.Empty;
+
+            using var mmf = MemoryMappedFile.CreateFromFile(@"C:\temp\cache\AAPL\AAPL-20210511-Quotes.json", FileMode.Open);
+            using var vs = mmf.CreateViewStream();
+            using var mmv = vs.SafeMemoryMappedViewHandle;
+
+            unsafe
+            {
+                byte* ptrMemMap = (byte*)0;
+                mmv.AcquirePointer(ref ptrMemMap);
+                bytes = new ReadOnlySpan<byte>(ptrMemMap, (int)mmv.ByteLength);
+
+                var reader = new Utf8JsonReader(bytes, new JsonReaderOptions
+                {
+                    AllowTrailingCommas = true,
+                    CommentHandling = JsonCommentHandling.Skip
+                });
+
+                bool hasPropertyName = false;
+                bool isArrayValue = false;
+                bool isEpoch = false;
+
+                while (reader.Read())
+                {
+                    if (quotes.Count >= 1000)
+                    {
+                        break;
+                    }
+
+                    if (reader.TokenType == JsonTokenType.StartObject)
+                    {
+                        sJson += ",{";
+                    }
+                    else if (reader.TokenType == JsonTokenType.EndObject)
+                    {
+                        sJson = sJson.Trim(',') + "}";
+
+                        if (!isArrayValue)
+                        {
+                            quotes.Add(JsonConvert.DeserializeObject<Quote>(sJson));
+                            sJson = String.Empty;
+                        }
+                    }
+                    else if (!hasPropertyName)
+                    {
+                        if (reader.TokenType == JsonTokenType.PropertyName)
+                        {
+                            sJson += ($"\"{reader.GetString()}\":");
+
+                            hasPropertyName = true;
+                        }
+                    }
+                    else
+                    {
+                        switch (reader.TokenType)
+                        {
+                            case JsonTokenType.String:
+                                sJson += ($"\"{reader.GetString()}\"");
+                                break;
+
+                            case JsonTokenType.Number:
+                                if (reader.TryGetDecimal(out var dd))
+                                {
+                                    sJson += ($"{dd}");
+                                }
+                                else if (reader.TryGetInt16(out var i16))
+                                {
+                                    sJson += ($"{i16}");
+                                }
+                                else if (reader.TryGetInt32(out var i32))
+                                {
+                                    sJson += ($"{i32}");
+                                }
+                                else if (reader.TryGetInt64(out var i64))
+                                {
+                                    sJson += ($"{i64}");
+                                }
+                                break;
+
+                            case JsonTokenType.Null:
+                                sJson += ("null");
+                                break;
+
+                            case JsonTokenType.True:
+                                sJson += ("true");
+                                break;
+
+                            case JsonTokenType.False:
+                                sJson += ("false");
+                                break;
+
+                            case JsonTokenType.StartArray:
+                                sJson += $"[";
+                                isArrayValue = true;
+                                break;
+
+                            case JsonTokenType.EndArray:
+                                sJson += $"]";
+                                isArrayValue = false;
+                                break;
+                        }
+
+                        sJson += ",";
+
+                        hasPropertyName = false;
+                        isEpoch = false;
+                    }
+                }
+
+                mmv.ReleasePointer();
+            }
+        }
+    }
+}
