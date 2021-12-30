@@ -10,6 +10,11 @@ namespace ConsoleApp1
 {
     public class Quote
     {
+        [JsonConstructor]
+        public Quote()
+        {
+        }
+
         public string rs;
         public bool isActive;
         public string T;
@@ -27,7 +32,6 @@ namespace ConsoleApp1
         [Benchmark]
         public void ReadAll()
         {
-            ReadOnlySpan<byte> bytes;
             var quotes = new List<Quote>();
             var sJson = string.Empty;
 
@@ -39,7 +43,8 @@ namespace ConsoleApp1
             {
                 byte* ptrMemMap = (byte*)0;
                 mmv.AcquirePointer(ref ptrMemMap);
-                bytes = new ReadOnlySpan<byte>(ptrMemMap, (int)mmv.ByteLength);
+                var bytes = new ReadOnlySpan<byte>(ptrMemMap, (int)mmv.ByteLength);
+                mmv.ReleasePointer();
 
                 var reader = new Utf8JsonReader(bytes, new JsonReaderOptions
                 {
@@ -48,8 +53,7 @@ namespace ConsoleApp1
                 });
 
                 bool hasPropertyName = false;
-                bool isArrayValue = false;
-                bool isEpoch = false;
+                bool isWithinArray = false;
 
                 while (reader.Read())
                 {
@@ -66,17 +70,17 @@ namespace ConsoleApp1
                     {
                         sJson = sJson.Trim(',') + "}";
 
-                        if (!isArrayValue)
+                        if (!isWithinArray)
                         {
                             quotes.Add(JsonConvert.DeserializeObject<Quote>(sJson));
-                            sJson = String.Empty;
+                            sJson = string.Empty;
                         }
                     }
                     else if (!hasPropertyName)
                     {
                         if (reader.TokenType == JsonTokenType.PropertyName)
                         {
-                            sJson += ($"\"{reader.GetString()}\":");
+                            sJson += $"\"{reader.GetString()}\":";
 
                             hasPropertyName = true;
                         }
@@ -86,59 +90,56 @@ namespace ConsoleApp1
                         switch (reader.TokenType)
                         {
                             case JsonTokenType.String:
-                                sJson += ($"\"{reader.GetString()}\"");
+                                sJson += $"\"{reader.GetString()}\"";
                                 break;
 
                             case JsonTokenType.Number:
                                 if (reader.TryGetDecimal(out var dd))
                                 {
-                                    sJson += ($"{dd}");
+                                    sJson += $"{dd}";
                                 }
                                 else if (reader.TryGetInt16(out var i16))
                                 {
-                                    sJson += ($"{i16}");
+                                    sJson += $"{i16}";
                                 }
                                 else if (reader.TryGetInt32(out var i32))
                                 {
-                                    sJson += ($"{i32}");
+                                    sJson += $"{i32}";
                                 }
                                 else if (reader.TryGetInt64(out var i64))
                                 {
-                                    sJson += ($"{i64}");
+                                    sJson += $"{i64}";
                                 }
                                 break;
 
                             case JsonTokenType.Null:
-                                sJson += ("null");
+                                sJson += "null";
                                 break;
 
                             case JsonTokenType.True:
-                                sJson += ("true");
+                                sJson += "true";
                                 break;
 
                             case JsonTokenType.False:
-                                sJson += ("false");
+                                sJson += "false";
                                 break;
 
                             case JsonTokenType.StartArray:
                                 sJson += $"[";
-                                isArrayValue = true;
+                                isWithinArray = true;
                                 break;
 
                             case JsonTokenType.EndArray:
                                 sJson += $"]";
-                                isArrayValue = false;
+                                isWithinArray = false;
                                 break;
                         }
 
                         sJson += ",";
 
                         hasPropertyName = false;
-                        isEpoch = false;
                     }
                 }
-
-                mmv.ReleasePointer();
             }
         }
     }
